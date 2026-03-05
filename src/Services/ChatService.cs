@@ -34,12 +34,19 @@ namespace ZavaStorefront.Services
                 : string.Empty;
         }
 
-        public async Task<string> SendMessageAsync(IEnumerable<ChatMessage> conversationHistory)
+        /// <summary>
+        /// Sends the conversation history to the Phi-4 model and returns the assistant reply.
+        /// </summary>
+        /// <returns>
+        /// A tuple where <c>Reply</c> contains the model response on success, or <c>Error</c> contains
+        /// a user-friendly message when the request fails. Only one of the two will be non-null.
+        /// </returns>
+        public async Task<(string? Reply, string? Error)> SendMessageAsync(IReadOnlyList<ChatMessage> conversationHistory)
         {
             if (!_isConfigured)
             {
                 _logger.LogWarning("Azure AI Foundry endpoint or API key is not configured");
-                return "Chat is not configured. Please set AzureAIFoundry:Endpoint and AzureAIFoundry:ApiKey in configuration.";
+                return (null, "Chat is not configured. Please set AzureAIFoundry:Endpoint and AzureAIFoundry:ApiKey in configuration.");
             }
 
             var messages = conversationHistory.Select(m => new { role = m.Role, content = m.Content });
@@ -50,59 +57,63 @@ namespace ZavaStorefront.Services
             request.Headers.Add("api-key", _apiKey);
             request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            _logger.LogInformation("Sending {MessageCount} message(s) to Phi-4 deployment", conversationHistory.Count());
+            _logger.LogInformation("Sending {MessageCount} message(s) to Phi-4 deployment", conversationHistory.Count);
 
-            HttpResponseMessage response;
             try
             {
-                response = await _httpClient.SendAsync(request);
+                using var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Azure AI Foundry returned {StatusCode}: {ErrorBody}", response.StatusCode, errorBody);
+                    return (null, $"Error: The AI endpoint returned an unexpected response ({(int)response.StatusCode}).");
+                }
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(responseJson);
+                    var content = doc.RootElement
+                        .GetProperty("choices")[0]
+                        .GetProperty("message")
+                        .GetProperty("content")
+                        .GetString();
+
+                    _logger.LogInformation("Received response from Phi-4");
+                    return (content ?? string.Empty, null);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Failed to parse response from Azure AI Foundry");
+                    return (null, "Error: Unable to parse the response from the AI endpoint.");
+                }
+                catch (IndexOutOfRangeException ex)
+                {
+                    _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: unexpected array structure");
+                    return (null, "Error: Unable to parse the response from the AI endpoint.");
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: missing expected property");
+                    return (null, "Error: Unable to parse the response from the AI endpoint.");
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: invalid JSON structure");
+                    return (null, "Error: Unable to parse the response from the AI endpoint.");
+                }
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogError(ex, "Request to Azure AI Foundry timed out");
+                return (null, "Error: The request to the AI endpoint timed out. Please try again.");
             }
             catch (HttpRequestException ex)
             {
                 _logger.LogError(ex, "Failed to reach Azure AI Foundry endpoint");
-                return "Error: Unable to reach the AI endpoint. Please check the configuration and network connectivity.";
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorBody = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Azure AI Foundry returned {StatusCode}: {ErrorBody}", response.StatusCode, errorBody);
-                return $"Error: The AI endpoint returned an unexpected response ({(int)response.StatusCode}).";
-            }
-
-            var responseJson = await response.Content.ReadAsStringAsync();
-
-            try
-            {
-                using var doc = JsonDocument.Parse(responseJson);
-                var content = doc.RootElement
-                    .GetProperty("choices")[0]
-                    .GetProperty("message")
-                    .GetProperty("content")
-                    .GetString();
-
-                _logger.LogInformation("Received response from Phi-4");
-                return content ?? string.Empty;
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, "Failed to parse response from Azure AI Foundry");
-                return "Error: Unable to parse the response from the AI endpoint.";
-            }
-            catch (IndexOutOfRangeException ex)
-            {
-                _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: unexpected array structure");
-                return "Error: Unable to parse the response from the AI endpoint.";
-            }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: missing expected property");
-                return "Error: Unable to parse the response from the AI endpoint.";
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: invalid JSON structure");
-                return "Error: Unable to parse the response from the AI endpoint.";
+                return (null, "Error: Unable to reach the AI endpoint. Please check the configuration and network connectivity.");
             }
         }
     }

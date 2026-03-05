@@ -127,7 +127,7 @@ The chat feature reads its settings from `appsettings.json` (or environment vari
 | `AzureAIFoundry:DeploymentName` | Deployment name of the Phi-4 model | `phi-4` |
 | `AzureAIFoundry:ApiVersion` | Azure OpenAI API version to target | `2024-05-01-preview` |
 
-**Never commit secrets to source control.** Use [.NET user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets){:target="_blank"} for local development:
+**Never commit secrets to source control.** Use [.NET user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) for local development:
 
 ```bash
 dotnet user-secrets set "AzureAIFoundry:Endpoint" "https://<account>.cognitiveservices.azure.com"

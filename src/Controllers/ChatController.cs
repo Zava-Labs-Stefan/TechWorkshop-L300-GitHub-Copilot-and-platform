@@ -37,10 +37,20 @@ namespace ZavaStorefront.Controllers
             var history = GetHistoryFromSession();
             history.Add(new ChatMessage { Role = "user", Content = userMessage });
 
-            var reply = await _chatService.SendMessageAsync(history);
+            var (reply, error) = await _chatService.SendMessageAsync(history);
 
-            history.Add(new ChatMessage { Role = "assistant", Content = reply });
-            SaveHistoryToSession(history);
+            if (reply != null)
+            {
+                history.Add(new ChatMessage { Role = "assistant", Content = reply });
+                SaveHistoryToSession(history);
+            }
+            else
+            {
+                // Remove the user message we just added — the turn failed
+                history.RemoveAt(history.Count - 1);
+                SaveHistoryToSession(history);
+                ViewBag.ErrorMessage = error;
+            }
 
             ViewBag.ConversationDisplay = FormatHistoryForDisplay(history);
             return View("Index");

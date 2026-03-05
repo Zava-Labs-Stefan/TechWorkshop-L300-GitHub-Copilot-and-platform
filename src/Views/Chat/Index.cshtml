@@ -8,6 +8,13 @@
 
     <div class="row">
         <div class="col-md-8 offset-md-2">
+            @if (!string.IsNullOrEmpty(ViewBag.ErrorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>@ViewBag.ErrorMessage
+                </div>
+            }
+
             <div class="mb-3">
                 <label for="conversationDisplay" class="form-label fw-semibold">Conversation</label>
                 <textarea id="conversationDisplay"
