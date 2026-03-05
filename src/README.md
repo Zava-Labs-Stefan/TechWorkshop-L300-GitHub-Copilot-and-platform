@@ -9,6 +9,7 @@ A simple e-commerce storefront application built with .NET 6 ASP.NET MVC.
 - **Cart Management**: View cart, update quantities, remove items
 - **Checkout**: Simple checkout process that clears cart and shows success message
 - **Responsive Design**: Mobile-friendly layout using Bootstrap 5
+- **Chat (Phi-4)**: Conversational interface powered by the Phi-4 model deployed on Microsoft Azure AI Foundry
 
 ## Technology Stack
 
@@ -24,21 +25,25 @@ A simple e-commerce storefront application built with .NET 6 ASP.NET MVC.
 ZavaStorefront/
 ├── Controllers/
 │   ├── HomeController.cs      # Products listing and add to cart
-│   └── CartController.cs       # Cart operations and checkout
+│   ├── CartController.cs       # Cart operations and checkout
+│   └── ChatController.cs       # Chat page and Phi-4 message handling
 ├── Models/
 │   ├── Product.cs              # Product model
 │   └── CartItem.cs             # Cart item model
 ├── Services/
 │   ├── ProductService.cs       # Static product data
-│   └── CartService.cs          # Session-based cart management
+│   ├── CartService.cs          # Session-based cart management
+│   └── ChatService.cs          # Azure AI Foundry (Phi-4) client
 ├── Views/
 │   ├── Home/
 │   │   └── Index.cshtml        # Products listing page
 │   ├── Cart/
 │   │   ├── Index.cshtml        # Shopping cart page
 │   │   └── CheckoutSuccess.cshtml  # Checkout success page
+│   ├── Chat/
+│   │   └── Index.cshtml        # Chat page (Phi-4 conversation)
 │   └── Shared/
-│       └── _Layout.cshtml      # Main layout with cart icon
+│       └── _Layout.cshtml      # Main layout with cart icon and Chat nav link
 └── wwwroot/
     ├── css/
     │   └── site.css            # Custom styles
@@ -106,6 +111,37 @@ To add custom product images, place JPG files in `wwwroot/images/products/` with
 - Session timeout: 30 minutes
 - No data persistence (cart clears when session expires)
 - Cart is cleared after successful checkout
+
+## Chat Feature (Phi-4 via Azure AI Foundry)
+
+The **Chat** page at `/Chat` lets users send messages directly to the Phi-4 model deployed on Microsoft Azure AI Foundry. Responses are appended to an on-screen conversation history text area.
+
+### Endpoint configuration
+
+The chat feature reads its settings from `appsettings.json` (or environment variables / user secrets for local development):
+
+| Key | Description | Example |
+|-----|-------------|---------|
+| `AzureAIFoundry:Endpoint` | Azure AI Services endpoint URL | `https://<account>.cognitiveservices.azure.com` |
+| `AzureAIFoundry:ApiKey` | API key for authentication | `<your-api-key>` |
+| `AzureAIFoundry:DeploymentName` | Deployment name of the Phi-4 model | `phi-4` |
+| `AzureAIFoundry:ApiVersion` | Azure OpenAI API version to target | `2024-05-01-preview` |
+
+**Never commit secrets to source control.** Use [.NET user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) for local development:
+
+```bash
+dotnet user-secrets set "AzureAIFoundry:Endpoint" "https://<account>.cognitiveservices.azure.com"
+dotnet user-secrets set "AzureAIFoundry:ApiKey"   "<your-api-key>"
+```
+
+Or set the equivalent environment variables (`AzureAIFoundry__Endpoint`, `AzureAIFoundry__ApiKey`) when deploying to Azure App Service.
+
+### Page usage
+
+1. Click **Chat** in the top navigation bar.
+2. Type a message in the **Your message** input and click **Send**.
+3. The reply from Phi-4 is appended to the **Conversation** text area.
+4. Click **Clear** to reset the conversation history.
 
 ## Logging
 
