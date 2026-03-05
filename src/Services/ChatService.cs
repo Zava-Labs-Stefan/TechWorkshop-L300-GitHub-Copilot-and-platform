@@ -84,9 +84,24 @@ namespace ZavaStorefront.Services
                 _logger.LogInformation("Received response from Phi-4");
                 return content ?? string.Empty;
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             {
                 _logger.LogError(ex, "Failed to parse response from Azure AI Foundry");
+                return "Error: Unable to parse the response from the AI endpoint.";
+            }
+            catch (IndexOutOfRangeException ex)
+            {
+                _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: unexpected array structure");
+                return "Error: Unable to parse the response from the AI endpoint.";
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: missing expected property");
+                return "Error: Unable to parse the response from the AI endpoint.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Failed to parse response from Azure AI Foundry: invalid JSON structure");
                 return "Error: Unable to parse the response from the AI endpoint.";
             }
         }
